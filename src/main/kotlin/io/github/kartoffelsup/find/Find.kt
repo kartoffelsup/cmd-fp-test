@@ -34,7 +34,7 @@ fun main(args: Array<String>) {
           this@run.value(ShortName("n"), LongName("name")).optional().bind()
         val iname: Option<String> =
           this@run.value(ShortName("in"), LongName("iname")).optional().bind()
-        // TODO kartoffelsup: name and iname should be mutually exclusive
+
         FindArguments(paths, type, name, iname)
       }
     }
