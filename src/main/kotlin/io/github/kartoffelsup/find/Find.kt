@@ -48,7 +48,7 @@ fun main(args: Array<String>) {
           .map(::safeCheckPathExists)
           .map { it.flatMap(::safeGetFile) }
           .all
-          .flatTraverse(ListK.monad(), IO.applicative()) { performSearch(it, findArgs).fix() }
+          .flatTraverse(ListK.monad(), IO.applicative()) { performSearch(it, findArgs) }
           .map { it.fix() }
           .fix()
       })
