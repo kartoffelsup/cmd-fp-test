@@ -4,14 +4,16 @@ import arrow.core.Either
 import arrow.core.Option
 import arrow.core.extensions.either.applicativeError.applicativeError
 import arrow.core.extensions.either.monad.binding
-import arrow.core.extensions.either.traverse.sequence
-import arrow.core.fix
+import arrow.data.ListK
 import arrow.data.NonEmptyList
 import arrow.data.extensions.list.foldable.find
-import arrow.data.extensions.list.traverse.sequence
+import arrow.data.extensions.list.traverse.flatTraverse
+import arrow.data.extensions.listk.monad.monad
 import arrow.data.fix
+import arrow.data.k
 import arrow.effects.IO
 import arrow.effects.extensions.io.applicative.applicative
+import arrow.effects.extensions.io.applicative.map
 import arrow.effects.fix
 import io.github.kartoffelsup.argparsing.ArgParser
 import io.github.kartoffelsup.argparsing.LongName
@@ -37,44 +39,58 @@ fun main(args: Array<String>) {
       }
     }
 
-  arguments.map { findArgs ->
-    val pathsIo: IO<NonEmptyList<Path>> = findArgs.paths
-      .map(::safeGetPath)
-      .traverse(IO.applicative(), safeCheckPathExists()).fix()
+  val search: IO<ListK<File>> =
+    arguments.fold(
+      { IO.raiseError(IllegalArgumentException(it)) },
+      { findArgs ->
+        findArgs.paths
+          .map(::safeGetPath)
+          .map(::safeCheckPathExists)
+          .map { it.flatMap(::safeGetFile) }
+          .all
+          .flatTraverse(ListK.monad(), IO.applicative()) { performSearch(it, findArgs).fix() }
+          .map { it.fix() }
+          .fix()
+      })
 
-    pathsIo.flatMap { paths: NonEmptyList<Path> ->
-      paths.all.map { path ->
-        IO { path.toFile() }
-          .flatMap { IO { it.walkTopDown() } }
-          .map { it.filter(predicates(findArgs)).toList() }
-      }.sequence(IO.applicative()).fix()
-        .map { it.fix().flatten() }
-    }
-  }.sequence(IO.applicative()).fix().map { it.fix() }
+  search
+    .attempt()
     .flatMap {
-      it.fold({ IO { println(it) } }, { IO { println("Results: $it") } })
-    }.attempt().unsafeRunSync()
-    .fold({ println(it.message) }, { Unit })
+      it.fold(
+        { IO { System.err.println(it.message) } },
+        { IO { println("Results: $it") } }
+      )
+    }.unsafeRunSync()
 }
 
-private fun predicates(findArgs: FindArguments): (File) -> Boolean = { file ->
+private fun performSearch(fileIo: IO<File>, findArgs: FindArguments): IO<ListK<File>> =
+  fileIo.flatMap { IO { it.walkTopDown() } }
+    .map { it.filter(filePredicate(findArgs)).toList().k() }
+
+private fun safeGetFile(path: Path) = IO { path.toFile() }
+
+private fun filePredicate(findArgs: FindArguments): (File) -> Boolean = { file ->
   val alwaysTrue: (File) -> Boolean = { true }
 
   // TODO kartoffelsup: glob matching (i.e. 'fileName*' etc.)
   val iNamePredicate: (File) -> Boolean = findArgs.iname
     .fold(
       { alwaysTrue },
-      { { f: File -> f.name.equals(it, ignoreCase = true) } })
+      { { f: File -> f.name.equals(it, ignoreCase = true) } }
+    )
 
   val namePredicate: (File) -> Boolean =
-    findArgs.name.fold({ alwaysTrue }, { { f: File -> f.name == it } })
+    findArgs.name.fold(
+      { alwaysTrue },
+      { { f: File -> f.name == it } }
+    )
 
   val typePredicate: (File) -> Boolean =
     findArgs.type.fold(
       { alwaysTrue },
-      {
+      { type: FindType ->
         { f: File ->
-          when (it) {
+          when (type) {
             FindType.DIRECTORY -> f.isDirectory
             FindType.FILE -> f.isFile
           }
@@ -84,17 +100,16 @@ private fun predicates(findArgs: FindArguments): (File) -> Boolean = { file ->
   iNamePredicate(file) && namePredicate(file) && typePredicate(file)
 }
 
-private fun safeCheckPathExists(): (IO<Path>) -> IO<Path> = { pathIo: IO<Path> ->
+private fun safeCheckPathExists(pathIo: IO<Path>): IO<Path> =
   pathIo.flatMap { path ->
     IO.defer {
       if (Files.exists(path)) {
         IO.just(path)
       } else {
-        IO.raiseError(IllegalArgumentException("File $path does not exist."))
+        IO.raiseError(IllegalArgumentException("File '$path' does not exist."))
       }
     }
   }
-}
 
 private fun safeGetPath(it: String) = IO { Paths.get(it) }
 
