@@ -8,3 +8,6 @@
  */
 
 rootProject.name = "cmd-fp-test"
+
+include("argparsing")
+include("find")
