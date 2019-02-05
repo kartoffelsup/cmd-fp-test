@@ -2,6 +2,7 @@ package io.github.kartoffelsup.find
 
 import arrow.core.Either
 import arrow.core.Option
+import arrow.core.Predicate
 import arrow.core.extensions.either.applicativeError.applicativeError
 import arrow.core.extensions.either.monad.binding
 import arrow.data.ListK
@@ -22,6 +23,9 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+
+private operator fun <T> Predicate<T>.plus(and: Predicate<T>): Predicate<T> =
+  { this(it) && and(it) }
 
 fun main(args: Array<String>) {
   val arguments: Either<String, FindArguments> =
@@ -58,7 +62,7 @@ fun main(args: Array<String>) {
     .flatMap {
       it.fold(
         { IO { System.err.println(it.message) } },
-        { IO { println("Results: $it") } }
+        { IO { println(it.joinToString(System.lineSeparator())) } }
       )
     }.unsafeRunSync()
 }
@@ -69,7 +73,7 @@ private fun performSearch(fileIo: IO<File>, findArgs: FindArguments): IO<ListK<F
 
 private fun safeGetFile(path: Path) = IO { path.toFile() }
 
-private fun filePredicate(findArgs: FindArguments): (File) -> Boolean = { file ->
+private fun filePredicate(findArgs: FindArguments): Predicate<File> = { file ->
   val alwaysTrue: (File) -> Boolean = { true }
 
   // TODO kartoffelsup: glob matching (i.e. 'fileName*' etc.)
@@ -97,7 +101,8 @@ private fun filePredicate(findArgs: FindArguments): (File) -> Boolean = { file -
         }
       })
 
-  iNamePredicate(file) && namePredicate(file) && typePredicate(file)
+  val combinedPredicate = iNamePredicate + namePredicate + typePredicate
+  combinedPredicate(file)
 }
 
 private fun safeCheckPathExists(pathIo: IO<Path>): IO<Path> =

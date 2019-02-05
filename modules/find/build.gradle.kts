@@ -15,7 +15,7 @@ val arrowModules = setOf(
 )
 
 dependencies {
-  implementation(project(":argparsing"))
+  implementation(project(":modules:argparsing"))
   implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
 
   arrowModules.forEach {
