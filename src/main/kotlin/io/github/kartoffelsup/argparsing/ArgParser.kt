@@ -5,6 +5,7 @@ import arrow.core.None
 import arrow.core.Option
 import arrow.core.Some
 import arrow.core.Tuple2
+import arrow.core.toOption
 import arrow.core.toT
 import arrow.data.Nel
 import arrow.data.NonEmptyList
@@ -18,7 +19,6 @@ class ArgParser<F, E>(
   private val eProvider: (String) -> E,
   args: Array<String>
 ) : ApplicativeError<F, E> by AE {
-
   private val args: Option<Nel<String>> = Nel.fromList(args.toList())
 
   private fun argument(shortName: ShortName, longName: LongName): Option<Tuple2<Int, Nel<String>>> =
@@ -36,28 +36,24 @@ class ArgParser<F, E>(
     argument(shortName, longName)
       .flatMap { (indexOfFirst, arguments) ->
         val arg = arguments.all[indexOfFirst]
-        if (arg.startsWith("--")) {
-          val split = arg.split('=')
-          if (split.size == 2 && split[1].isNotBlank()) {
-            Some(split[1])
-          } else {
-            None
-          }
-        } else if (arguments.all.size > (indexOfFirst + 1)) {
-          val potentialValue = arguments.all[indexOfFirst + 1]
-          if (potentialValue.startsWith("-")) {
-            None
-          } else {
-            Some(potentialValue)
-          }
-        } else {
-          None
+        when {
+          arg.startsWith("--") -> longValueArgument(arg)
+          arguments.all.size > (indexOfFirst + 1) -> shortValueArgument(arguments, indexOfFirst)
+          else -> None
         }
-      }.fold({
-        AE.raiseError(eProvider("Argument '${longName.name}' ('${shortName.name}') is missing."))
-      }, {
-        just(it)
-      })
+      }.fold(
+        {
+          AE.raiseError(eProvider("Argument '${longName.name}' ('${shortName.name}') is missing."))
+        },
+        { just(it) }
+      )
+
+  private fun shortValueArgument(arguments: Nel<String>, indexOfFirst: Int): Option<String> =
+    arguments.all[indexOfFirst + 1].takeIf { !it.startsWith("-") }.toOption()
+
+
+  private fun longValueArgument(arg: String): Option<String> =
+    arg.split('=').takeIf { it.size == 2 && it[1].isNotBlank() }?.get(1).toOption()
 
   fun <T> value(
     shortName: ShortName,
