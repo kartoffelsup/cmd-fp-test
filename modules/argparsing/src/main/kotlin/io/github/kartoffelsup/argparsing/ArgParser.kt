@@ -3,9 +3,10 @@ package io.github.kartoffelsup.argparsing
 import arrow.Kind
 import arrow.core.None
 import arrow.core.Option
+import arrow.core.Predicate
 import arrow.core.Some
 import arrow.core.Tuple2
-import arrow.core.toOption
+import arrow.core.maybe
 import arrow.core.toT
 import arrow.data.Nel
 import arrow.data.NonEmptyList
@@ -13,6 +14,9 @@ import arrow.typeclasses.ApplicativeError
 
 inline class ShortName(val name: String)
 inline class LongName(val name: String)
+
+private inline fun <T> T.takeIf(predicate: Predicate<T>): Option<T> =
+  predicate(this).maybe { this }
 
 class ArgParser<F, E>(
   private val AE: ApplicativeError<F, E>,
@@ -25,10 +29,8 @@ class ArgParser<F, E>(
     args.flatMap { arguments ->
       val indexOfFirst = arguments.all
         .indexOfFirst { it == "-${shortName.name}" || it.startsWith("--${longName.name}") }
-      if (indexOfFirst != -1) {
-        Some(indexOfFirst toT arguments)
-      } else {
-        None
+      (indexOfFirst != -1).maybe {
+        indexOfFirst toT arguments
       }
     }
 
@@ -49,11 +51,11 @@ class ArgParser<F, E>(
       )
 
   private fun shortValueArgument(arguments: Nel<String>, indexOfFirst: Int): Option<String> =
-    arguments.all[indexOfFirst + 1].takeIf { !it.startsWith("-") }.toOption()
+    arguments.all[indexOfFirst + 1].takeIf { !it.startsWith("-") }
 
 
   private fun longValueArgument(arg: String): Option<String> =
-    arg.split('=').takeIf { it.size == 2 && it[1].isNotBlank() }?.get(1).toOption()
+    arg.split('=').takeIf { it.size == 2 && it[1].isNotBlank() }.map { it[1] }
 
   fun <T> value(
     shortName: ShortName,
