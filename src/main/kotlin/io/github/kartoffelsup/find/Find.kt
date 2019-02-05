@@ -29,11 +29,11 @@ fun main(args: Array<String>) {
       binding {
         val paths: NonEmptyList<String> = this@run.list(ShortName("p"), LongName("paths")).bind()
         val type: Option<FindType> =
-          this@run.value(ShortName("t"), LongName("type")) { optEnumValueOf<FindType>(it) }.bind()
+          value(ShortName("t"), LongName("type")) { optEnumValueOf<FindType>(it) }.bind()
         val name: Option<String> =
-          this@run.value(ShortName("n"), LongName("name")).optional().bind()
+          value(ShortName("n"), LongName("name")).optional().bind()
         val iname: Option<String> =
-          this@run.value(ShortName("in"), LongName("iname")).optional().bind()
+          value(ShortName("in"), LongName("iname")).optional().bind()
 
         FindArguments(paths, type, name, iname)
       }

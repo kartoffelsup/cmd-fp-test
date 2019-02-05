@@ -20,14 +20,13 @@ repositories {
 
 val arrowModules = setOf(
   "arrow-core-data",
-  "arrow-syntax",
+  "arrow-core-extensions",
   "arrow-typeclasses",
   "arrow-extras",
   "arrow-extras-extensions",
   "arrow-effects",
   "arrow-effects-extensions"
 )
-
 
 dependencies {
   implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
