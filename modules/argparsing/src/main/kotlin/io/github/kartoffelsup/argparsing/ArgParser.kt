@@ -53,7 +53,6 @@ class ArgParser<F, E>(
   private fun shortValueArgument(arguments: Nel<String>, indexOfFirst: Int): Option<String> =
     arguments.all[indexOfFirst + 1].takeIf { !it.startsWith("-") }
 
-
   private fun longValueArgument(arg: String): Option<String> =
     arg.split('=').takeIf { it.size == 2 && it[1].isNotBlank() }.map { it[1] }
 

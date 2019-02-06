@@ -18,6 +18,9 @@ dependencies {
     implementation("io.arrow-kt:$it:$arrowVersion")
   }
 
-  testImplementation("io.kotlintest:kotlintest-runner-junit5:$kotlinTestVersion")
+  testImplementation("io.kotlintest:kotlintest-runner-junit5:$kotlinTestVersion") {
+    exclude(group = "io.arrow-kt")
+    exclude(group = "org.jetbrains.kotlin")
+  }
   testImplementation("io.arrow-kt:arrow-core-extensions:$arrowVersion")
 }
