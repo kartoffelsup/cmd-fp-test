@@ -1,10 +1,15 @@
 package io.github.kartoffelsup.find
 
 import arrow.core.Either
+import arrow.core.Left
+import arrow.core.None
 import arrow.core.Option
 import arrow.core.Predicate
+import arrow.core.Right
+import arrow.core.Some
 import arrow.core.extensions.either.applicativeError.applicativeError
 import arrow.core.extensions.either.monad.binding
+import arrow.core.fix
 import arrow.data.ListK
 import arrow.data.NonEmptyList
 import arrow.data.extensions.list.foldable.find
@@ -33,7 +38,11 @@ fun main(args: Array<String>) {
       binding {
         val paths: NonEmptyList<String> = this@run.list(ShortName("p"), LongName("paths")).bind()
         val type: Option<FindType> =
-          value(ShortName("t"), LongName("type")) { optEnumValueOf<FindType>(it) }.bind()
+          value(ShortName("t"), LongName("type")).optional()
+            .flatMap { opt: Option<String> ->
+              parseToFindType(opt)
+            }.fix().bind()
+
         val name: Option<String> =
           value(ShortName("n"), LongName("name")).optional().bind()
         val iname: Option<String> =
@@ -65,6 +74,19 @@ fun main(args: Array<String>) {
         { IO { println(it.joinToString(System.lineSeparator())) } }
       )
     }.unsafeRunSync()
+}
+
+private fun parseToFindType(opt: Option<String>): Either<String, Option<FindType>> {
+  return opt.fold(
+    { Right(None) },
+    { strValue ->
+      optEnumValueOf<FindType>(strValue)
+        .fold(
+          { Left("Invalid value for argument (-t, --type): '$strValue'.") },
+          { Right(Some(it)) }
+        )
+    }
+  )
 }
 
 private fun performSearch(fileIo: IO<File>, findArgs: FindArguments): IO<ListK<File>> =
@@ -107,8 +129,8 @@ private fun filePredicate(findArgs: FindArguments): Predicate<File> = { file ->
 
 private fun safeCheckPathExists(pathIo: IO<Path>): IO<Path> =
   pathIo.flatMap { path ->
-    IO.defer {
-      if (Files.exists(path)) {
+    IO { Files.exists(path) }.flatMap { exists ->
+      if (exists) {
         IO.just(path)
       } else {
         IO.raiseError(IllegalArgumentException("File '$path' does not exist."))
