@@ -12,17 +12,27 @@ import arrow.data.Nel
 import arrow.data.NonEmptyList
 import arrow.typeclasses.ApplicativeError
 
+fun sn(name: String) = ShortName(name)
+fun ln(name: String) = LongName(name)
+
 inline class ShortName(val name: String)
 inline class LongName(val name: String)
 
 private inline fun <T> T.takeIf(predicate: Predicate<T>): Option<T> =
   predicate(this).maybe { this }
 
-class ArgParser<F, E>(
-  private val AE: ApplicativeError<F, E>,
-  private val eProvider: (String) -> E,
+abstract class ArgParserError {
+  abstract val message: String
+}
+
+class ArgumentMissing(shortName: ShortName, longName: LongName) : ArgParserError() {
+  override val message = "Argument '${longName.name}' ('${shortName.name}') is missing."
+}
+
+class ArgParser<F>(
+  private val AE: ApplicativeError<F, ArgParserError>,
   args: Array<String>
-) : ApplicativeError<F, E> by AE {
+) : ApplicativeError<F, ArgParserError> by AE {
   private val args: Option<Nel<String>> = Nel.fromList(args.toList())
 
   private fun argument(shortName: ShortName, longName: LongName): Option<Tuple2<Int, Nel<String>>> =
@@ -45,7 +55,7 @@ class ArgParser<F, E>(
         }
       }.fold(
         {
-          AE.raiseError(eProvider("Argument '${longName.name}' ('${shortName.name}') is missing."))
+          AE.raiseError(ArgumentMissing(shortName, longName))
         },
         { just(it) }
       )

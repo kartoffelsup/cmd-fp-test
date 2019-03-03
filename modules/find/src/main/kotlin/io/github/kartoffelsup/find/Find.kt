@@ -1,11 +1,10 @@
 package io.github.kartoffelsup.find
 
+import arrow.Kind
 import arrow.core.Either
-import arrow.core.Left
 import arrow.core.None
 import arrow.core.Option
 import arrow.core.Predicate
-import arrow.core.Right
 import arrow.core.Some
 import arrow.core.extensions.either.applicativeError.applicativeError
 import arrow.core.extensions.either.monad.binding
@@ -18,12 +17,13 @@ import arrow.data.extensions.listk.monad.monad
 import arrow.data.fix
 import arrow.data.k
 import arrow.effects.IO
-import arrow.effects.extensions.io.applicative.applicative
-import arrow.effects.extensions.io.applicative.map
+import arrow.effects.extensions.io.monadDefer.monadDefer
 import arrow.effects.fix
+import arrow.effects.typeclasses.MonadDefer
 import io.github.kartoffelsup.argparsing.ArgParser
-import io.github.kartoffelsup.argparsing.LongName
-import io.github.kartoffelsup.argparsing.ShortName
+import io.github.kartoffelsup.argparsing.ArgParserError
+import io.github.kartoffelsup.argparsing.ln
+import io.github.kartoffelsup.argparsing.sn
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
@@ -32,38 +32,86 @@ import java.nio.file.Paths
 private operator fun <T> Predicate<T>.plus(and: Predicate<T>): Predicate<T> =
   { this(it) && and(it) }
 
-fun main(args: Array<String>) {
-  val arguments: Either<String, FindArguments> =
-    ArgParser(Either.applicativeError(), { it }, args).run {
-      binding {
-        val paths: NonEmptyList<String> = this@run.list(ShortName("p"), LongName("paths")).bind()
-        val type: Option<FindType> =
-          value(ShortName("t"), LongName("type")).optional()
-            .flatMap { opt: Option<String> ->
-              parseToFindType(opt)
-            }.fix().bind()
+class Find<F>(private val MD: MonadDefer<F>) : MonadDefer<F> by MD {
 
-        val name: Option<String> =
-          value(ShortName("n"), LongName("name")).optional().bind()
-        val iname: Option<String> =
-          value(ShortName("in"), LongName("iname")).optional().bind()
+  private fun performSearch(
+    fileIo: Kind<F, File>,
+    findArgs: FindArguments
+  ): Kind<F, ListK<File>> =
+    fileIo.flatMap { delay { it.walkTopDown() } }
+      .map { it.filter(filePredicate(findArgs)).toList().k() }
 
-        FindArguments(paths, type, name, iname)
+  private fun safeGetFile(path: Path): Kind<F, File> = delay { path.toFile() }
+
+  private fun filePredicate(findArgs: FindArguments): Predicate<File> = { file ->
+    val alwaysTrue: (File) -> Boolean = { true }
+
+    // TODO kartoffelsup: glob matching (i.e. 'fileName*' etc.)
+    val iNamePredicate: (File) -> Boolean = findArgs.iname
+      .fold(
+        { alwaysTrue },
+        { { f: File -> f.name.equals(it, ignoreCase = true) } }
+      )
+
+    val namePredicate: (File) -> Boolean =
+      findArgs.name.fold(
+        { alwaysTrue },
+        { { f: File -> f.name == it } }
+      )
+
+    val typePredicate: (File) -> Boolean =
+      findArgs.type.fold(
+        { alwaysTrue },
+        { type: FindType ->
+          { f: File ->
+            when (type) {
+              FindType.DIRECTORY -> f.isDirectory
+              FindType.FILE -> f.isFile
+            }
+          }
+        })
+
+    val combinedPredicate = iNamePredicate + namePredicate + typePredicate
+    combinedPredicate(file)
+  }
+
+  private fun safeCheckPathExists(pathToCheck: Kind<F, Path>): Kind<F, Path> =
+    pathToCheck.flatMap { path ->
+      delay { Files.exists(path) }.flatMap { exists ->
+        if (exists) {
+          just(path)
+        } else {
+          raiseError(IllegalArgumentException("File '$path' does not exist."))
+        }
       }
     }
 
+  private fun safeGetPath(it: String): Kind<F, Path> =
+    delay { Paths.get(it) }
+
+  fun program(findArgs: FindArguments): Kind<F, ListK<File>> = findArgs.paths
+    .map { safeGetPath(it) }
+    .map { pathIo -> safeCheckPathExists(pathIo) }
+    .map { it.flatMap { path -> safeGetFile(path) } }
+    .all
+    .flatTraverse(ListK.monad(), MD) {
+      performSearch(
+        it,
+        findArgs
+      )
+    }
+    .map { it.fix() }
+}
+
+fun main(args: Array<String>) {
+  val arguments: Either<ArgParserError, FindArguments> = parseArguments(args)
+
+  val find = Find(IO.monadDefer())
   val search: IO<ListK<File>> =
     arguments.fold(
-      { IO.raiseError(IllegalArgumentException(it)) },
+      { IO.raiseError(IllegalArgumentException(it.message)) },
       { findArgs ->
-        findArgs.paths
-          .map(::safeGetPath)
-          .map(::safeCheckPathExists)
-          .map { it.flatMap(::safeGetFile) }
-          .all
-          .flatTraverse(ListK.monad(), IO.applicative()) { performSearch(it, findArgs) }
-          .map { it.fix() }
-          .fix()
+        find.program(findArgs).fix()
       })
 
   search
@@ -76,69 +124,39 @@ fun main(args: Array<String>) {
     }.unsafeRunSync()
 }
 
-private fun parseToFindType(opt: Option<String>): Either<String, Option<FindType>> {
-  return opt.fold(
-    { Right(None) },
-    { strValue ->
-      optEnumValueOf<FindType>(strValue)
-        .fold(
-          { Left("Invalid value for argument (-t, --type): '$strValue'.") },
-          { Right(Some(it)) }
-        )
-    }
-  )
-}
+private fun parseArguments(args: Array<String>): Either<ArgParserError, FindArguments> =
+  ArgParser(Either.applicativeError(), args).run {
+    binding {
+      val paths: NonEmptyList<String> = list(sn("p"), ln("paths")).bind()
+      val type: Option<FindType> =
+        value(sn("t"), ln("type")).optional()
+          .flatMap { opt ->
+            parseToFindType(opt)
+          }.fix().bind()
 
-private fun performSearch(fileIo: IO<File>, findArgs: FindArguments): IO<ListK<File>> =
-  fileIo.flatMap { IO { it.walkTopDown() } }
-    .map { it.filter(filePredicate(findArgs)).toList().k() }
+      val (name: Option<String>) = value(sn("n"), ln("name")).optional()
+      val (iname: Option<String>) = value(sn("in"), ln("iname")).optional()
 
-private fun safeGetFile(path: Path) = IO { path.toFile() }
-
-private fun filePredicate(findArgs: FindArguments): Predicate<File> = { file ->
-  val alwaysTrue: (File) -> Boolean = { true }
-
-  // TODO kartoffelsup: glob matching (i.e. 'fileName*' etc.)
-  val iNamePredicate: (File) -> Boolean = findArgs.iname
-    .fold(
-      { alwaysTrue },
-      { { f: File -> f.name.equals(it, ignoreCase = true) } }
-    )
-
-  val namePredicate: (File) -> Boolean =
-    findArgs.name.fold(
-      { alwaysTrue },
-      { { f: File -> f.name == it } }
-    )
-
-  val typePredicate: (File) -> Boolean =
-    findArgs.type.fold(
-      { alwaysTrue },
-      { type: FindType ->
-        { f: File ->
-          when (type) {
-            FindType.DIRECTORY -> f.isDirectory
-            FindType.FILE -> f.isFile
-          }
-        }
-      })
-
-  val combinedPredicate = iNamePredicate + namePredicate + typePredicate
-  combinedPredicate(file)
-}
-
-private fun safeCheckPathExists(pathIo: IO<Path>): IO<Path> =
-  pathIo.flatMap { path ->
-    IO { Files.exists(path) }.flatMap { exists ->
-      if (exists) {
-        IO.just(path)
-      } else {
-        IO.raiseError(IllegalArgumentException("File '$path' does not exist."))
-      }
+      FindArguments(paths, type, name, iname)
     }
   }
 
-private fun safeGetPath(it: String) = IO { Paths.get(it) }
+private fun <F> ArgParser<F>.parseToFindType(
+  opt: Option<String>
+): Kind<F, Option<FindType>> = opt.fold(
+  { just(None) },
+  { strValue ->
+    optEnumValueOf<FindType>(strValue)
+      .fold(
+        {
+          raiseError(object : ArgParserError() {
+            override val message: String = "Invalid value for argument (-t, --type): '$strValue'."
+          })
+        },
+        { just(Some(it)) }
+      )
+  }
+)
 
 class FindArguments(
   val paths: NonEmptyList<String>,

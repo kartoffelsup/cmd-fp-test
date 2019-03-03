@@ -6,12 +6,6 @@ subprojects {
   repositories {
     mavenLocal()
     mavenCentral()
-    maven {
-      url = uri("http://oss.jfrog.org/artifactory/oss-snapshot-local/")
-      content {
-        includeGroup("io.arrow-kt")
-      }
-    }
   }
 
   tasks {
