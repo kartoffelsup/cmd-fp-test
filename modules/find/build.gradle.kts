@@ -1,18 +1,15 @@
 import io.github.kartoffelsup.Versions.arrowVersion
+import org.jetbrains.kotlin.kapt3.base.Kapt.kapt
 
 plugins {
   kotlin("jvm")
+  kotlin("kapt")
 }
 
 val arrowModules = setOf(
-  "arrow-core-data",
-  "arrow-core-extensions",
-  "arrow-typeclasses",
-  "arrow-extras",
-  "arrow-extras-extensions",
-  "arrow-effects-data",
-  "arrow-effects-extensions",
-  "arrow-effects-io-extensions"
+  "arrow-core",
+  "arrow-syntax",
+  "arrow-fx"
 )
 
 dependencies {

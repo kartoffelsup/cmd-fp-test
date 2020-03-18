@@ -6,9 +6,7 @@ plugins {
 }
 
 val arrowModules = setOf(
-  "arrow-core-data",
-  "arrow-extras",
-  "arrow-typeclasses"
+  "arrow-core"
 )
 
 dependencies {
@@ -22,5 +20,5 @@ dependencies {
     exclude(group = "io.arrow-kt")
     exclude(group = "org.jetbrains.kotlin")
   }
-  testImplementation("io.arrow-kt:arrow-core-extensions:$arrowVersion")
+  testImplementation("org.jetbrains.kotlin:kotlin-reflect")
 }
