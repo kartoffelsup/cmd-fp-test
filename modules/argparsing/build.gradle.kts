@@ -1,5 +1,5 @@
 import io.github.kartoffelsup.Versions.arrowVersion
-import io.github.kartoffelsup.Versions.kotlinTestVersion
+import io.github.kartoffelsup.Versions.kotestVersion
 
 plugins {
   kotlin("jvm")
@@ -16,7 +16,11 @@ dependencies {
     implementation("io.arrow-kt:$it:$arrowVersion")
   }
 
-  testImplementation("io.kotlintest:kotlintest-runner-junit5:$kotlinTestVersion") {
+  testImplementation("io.kotest:kotest-runner-junit5:$kotestVersion") {
+    exclude(group = "io.arrow-kt")
+    exclude(group = "org.jetbrains.kotlin")
+  }
+  testImplementation("io.kotest:kotest-assertions-core:$kotestVersion") {
     exclude(group = "io.arrow-kt")
     exclude(group = "org.jetbrains.kotlin")
   }

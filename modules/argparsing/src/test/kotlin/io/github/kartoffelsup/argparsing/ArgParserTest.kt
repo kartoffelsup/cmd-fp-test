@@ -5,9 +5,9 @@ import arrow.core.Nel
 import arrow.core.NonEmptyList
 import arrow.core.extensions.either.applicativeError.applicativeError
 import arrow.core.fix
-import io.kotlintest.fail
-import io.kotlintest.shouldBe
-import io.kotlintest.specs.DescribeSpec
+import io.kotest.assertions.fail
+import io.kotest.core.spec.style.DescribeSpec
+import io.kotest.matchers.shouldBe
 
 internal class ArgParserTest : DescribeSpec({
     describe("parse value arguments") {

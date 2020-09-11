@@ -1,5 +1,7 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 plugins {
-    kotlin("jvm") version "1.3.72" apply false
+    kotlin("jvm") version "1.4.10" apply false
 }
 
 subprojects {
@@ -11,6 +13,13 @@ subprojects {
     tasks {
         withType(Test::class) {
             useJUnitPlatform { }
+        }
+
+        withType(KotlinCompile::class) {
+            kotlinOptions {
+                jvmTarget = "11"
+                freeCompilerArgs += "-Xinline-classes"
+            }
         }
     }
 }
