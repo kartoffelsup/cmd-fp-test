@@ -9,4 +9,4 @@
 
 rootProject.name = "cmd-fp-test"
 
-include("modules:argparsing", "modules:find")
+include("modules:argparsing")

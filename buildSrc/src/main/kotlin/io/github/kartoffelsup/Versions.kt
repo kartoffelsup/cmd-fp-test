@@ -1,6 +1,6 @@
 package io.github.kartoffelsup
 
 object Versions {
-  const val arrowVersion = "0.11.0"
-  const val kotestVersion = "4.2.4"
+  const val arrowVersion = "0.13.2"
+  const val kotestVersion = "4.4.3"
 }

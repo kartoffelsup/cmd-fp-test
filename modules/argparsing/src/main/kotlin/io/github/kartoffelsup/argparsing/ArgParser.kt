@@ -1,11 +1,11 @@
 package io.github.kartoffelsup.argparsing
 
-import arrow.Kind
+import arrow.core.Either
 import arrow.core.Nel
 import arrow.core.NonEmptyList
-import arrow.core.Tuple2
-import arrow.core.toT
-import arrow.typeclasses.ApplicativeError
+import arrow.core.handleError
+import arrow.core.right
+import arrow.core.rightIfNotNull
 
 fun String.shortOption() = ShortName(this)
 fun String.longOption() = LongName(this)
@@ -25,32 +25,32 @@ class InvalidValue(msg: String) : ArgParserError() {
     override val message = msg
 }
 
-class ArgParser<F>(
-    private val AE: ApplicativeError<F, ArgParserError>,
+class ArgParser(
     args: Array<String>
-) : ApplicativeError<F, ArgParserError> by AE {
+) {
     private val args: Nel<String>? = args.toList().takeIf { it.isNotEmpty() }?.let { NonEmptyList.fromListUnsafe(it) }
 
-    private fun argument(shortName: ShortName, longName: LongName): Tuple2<Int, Nel<String>>? =
+    private fun argument(shortName: ShortName, longName: LongName): Pair<Int, Nel<String>>? =
         args?.let { arguments ->
             val indexOfFirst = arguments.all
                 .indexOfFirst { it == "-${shortName.name}" || it.startsWith("--${longName.name}") }
             if (indexOfFirst != -1) {
-                indexOfFirst toT arguments
+                indexOfFirst to arguments
             } else {
                 null
             }
         }
 
-    fun value(shortName: ShortName, longName: LongName): Kind<F, String> =
+    fun value(shortName: ShortName, longName: LongName): Either<ArgParserError, String> =
         argument(shortName, longName)?.let { (indexOfFirst, arguments) ->
-            val arg = arguments.all[indexOfFirst]
+            val arg: String = arguments.all[indexOfFirst]
             when {
                 arg.startsWith("--") -> longValueArgument(arg)
                 arguments.all.size > (indexOfFirst + 1) -> shortValueArgument(arguments, indexOfFirst)
                 else -> null
             }
-        }?.let { just(it) } ?: AE.raiseError(ArgumentMissing(shortName, longName))
+        }.rightIfNotNull { ArgumentMissing(shortName, longName) }
+
 
     private fun shortValueArgument(arguments: Nel<String>, indexOfFirst: Int): String? =
         arguments.all[indexOfFirst + 1].takeIf { !it.startsWith("-") }
@@ -62,16 +62,16 @@ class ArgParser<F>(
         shortName: ShortName,
         longName: LongName,
         transform: (String) -> T
-    ): Kind<F, T> =
+    ): Either<ArgParserError, T> =
         value(shortName, longName).map(transform)
 
-    fun flag(shortName: ShortName, longName: LongName): Kind<F, Boolean> =
-        argument(shortName, longName)?.let { just(true) } ?: just(false)
+    fun flag(shortName: ShortName, longName: LongName): Either<ArgParserError, Boolean> =
+        argument(shortName, longName)?.let { true.right() } ?: false.right()
 
-    fun list(shortName: ShortName, longName: LongName): Kind<F, NonEmptyList<String>> =
+    fun list(shortName: ShortName, longName: LongName): Either<ArgParserError, NonEmptyList<String>> =
         value(shortName, longName) {
             Nel.fromListUnsafe(it.split(','))
         }
 
-    fun <T> Kind<F, T>.optional(): Kind<F, T?> = this.handleError { null }
+    fun <T> Either<ArgParserError, T>.optional(): Either<ArgParserError, T?> = this.handleError { null }
 }

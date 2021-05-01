@@ -3,8 +3,6 @@ package io.github.kartoffelsup.argparsing
 import arrow.core.Either
 import arrow.core.Nel
 import arrow.core.NonEmptyList
-import arrow.core.extensions.either.applicativeError.applicativeError
-import arrow.core.fix
 import io.kotest.assertions.fail
 import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.shouldBe
@@ -21,12 +19,12 @@ internal class ArgParserTest : DescribeSpec({
                 "--emptyvalue=",
                 "--foo-bar=asdf"
             )
-        val argParser = ArgParser(Either.applicativeError(), args)
+        val argParser = ArgParser(args)
 
         it("parses long-name value argument") {
             val shortName = ShortName("f")
             val longName = LongName("foo")
-            val value: Either<ArgParserError, String> = argParser.value(shortName, longName).fix()
+            val value: Either<ArgParserError, String> = argParser.value(shortName, longName)
             value.fold({
                 fail("A value should be found for ${shortName.name}, ${longName.name}")
             }, {
@@ -37,7 +35,7 @@ internal class ArgParserTest : DescribeSpec({
         it("parses long-name value argument with dashes") {
             val shortName = ShortName("fb")
             val longName = LongName("foo-bar")
-            val value: Either<ArgParserError, String> = argParser.value(shortName, longName).fix()
+            val value: Either<ArgParserError, String> = argParser.value(shortName, longName)
             value.fold({
                 fail("A value should be found for ${shortName.name}, ${longName.name}")
             }, {
@@ -48,7 +46,7 @@ internal class ArgParserTest : DescribeSpec({
         it("parses short-name value argument") {
             val shortName = ShortName("a")
             val longName = LongName("abc")
-            val value: Either<ArgParserError, String> = argParser.value(shortName, longName).fix()
+            val value: Either<ArgParserError, String> = argParser.value(shortName, longName)
             value.fold({
                 fail("A value should be found for ${shortName.name}, ${longName.name}")
             }, {
@@ -59,7 +57,7 @@ internal class ArgParserTest : DescribeSpec({
         it("errors if argument not found") {
             val shortName = ShortName("ne")
             val longName = LongName("nonexistent")
-            val value: Either<ArgParserError, String> = argParser.value(shortName, longName).fix()
+            val value: Either<ArgParserError, String> = argParser.value(shortName, longName)
             value.fold({
                 it.message shouldBe "Argument '${longName.name}' ('${shortName.name}') is missing."
             }, {
@@ -70,7 +68,7 @@ internal class ArgParserTest : DescribeSpec({
         it("errors if argument has no value") {
             val shortName = ShortName("b")
             val longName = LongName("booyakasha")
-            val value: Either<ArgParserError, String> = argParser.value(shortName, longName).fix()
+            val value: Either<ArgParserError, String> = argParser.value(shortName, longName)
             value.fold({
                 it.message shouldBe "Argument '${longName.name}' ('${shortName.name}') is missing."
             }, {
@@ -81,7 +79,7 @@ internal class ArgParserTest : DescribeSpec({
         it("errors if long argument has no value") {
             val shortName = ShortName("ev")
             val longName = LongName("emptyvalue")
-            val value: Either<ArgParserError, String> = argParser.value(shortName, longName).fix()
+            val value: Either<ArgParserError, String> = argParser.value(shortName, longName)
             value.fold({
                 it.message shouldBe "Argument '${longName.name}' ('${shortName.name}') is missing."
             }, {
@@ -100,35 +98,35 @@ internal class ArgParserTest : DescribeSpec({
                 "-bl",
                 "-a"
             )
-        val argParser = ArgParser(Either.applicativeError(), args)
+        val argParser = ArgParser(args)
 
         it("parses long-name list argument") {
             val shortName = ShortName("l")
             val longName = LongName("list")
             val value: Either<ArgParserError, NonEmptyList<String>> =
-                argParser.list(shortName, longName).fix()
+                argParser.list(shortName, longName)
             value.fold({
                 fail("A value should be found for ${shortName.name}, ${longName.name}")
             }, {
-                it shouldBe Nel.of("foo", "bar", "baz", "")
+                it shouldBe Nel.fromListUnsafe(listOf("foo", "bar", "baz", ""))
             })
         }
 
         it("parses short-name list argument") {
             val shortName = ShortName("al")
             val longName = LongName("alist")
-            val value: Either<ArgParserError, NonEmptyList<String>> = argParser.list(shortName, longName).fix()
+            val value: Either<ArgParserError, NonEmptyList<String>> = argParser.list(shortName, longName)
             value.fold({
                 fail("A value should be found for ${shortName.name}, ${longName.name}")
             }, {
-                it shouldBe Nel.of("b", "c", "d")
+                it shouldBe Nel.fromListUnsafe(listOf("b", "c", "d"))
             })
         }
 
         it("errors if long list argument has no value") {
             val shortName = ShortName("lnv")
             val longName = LongName("listnovalue")
-            val value: Either<ArgParserError, String> = argParser.value(shortName, longName).fix()
+            val value: Either<ArgParserError, String> = argParser.value(shortName, longName)
             value.fold({
                 it.message shouldBe "Argument '${longName.name}' ('${shortName.name}') is missing."
             }, {
@@ -139,7 +137,7 @@ internal class ArgParserTest : DescribeSpec({
         it("errors if short list argument has no value") {
             val shortName = ShortName("a")
             val longName = LongName("anemptylistargument")
-            val value: Either<ArgParserError, String> = argParser.value(shortName, longName).fix()
+            val value: Either<ArgParserError, String> = argParser.value(shortName, longName)
             value.fold({
                 it.message shouldBe "Argument '${longName.name}' ('${shortName.name}') is missing."
             }, {
@@ -150,7 +148,7 @@ internal class ArgParserTest : DescribeSpec({
         it("errors if short list argument has no value (2)") {
             val shortName = ShortName("bl")
             val longName = LongName("bloodylist")
-            val value: Either<ArgParserError, String> = argParser.value(shortName, longName).fix()
+            val value: Either<ArgParserError, String> = argParser.value(shortName, longName)
             value.fold({
                 it.message shouldBe "Argument '${longName.name}' ('${shortName.name}') is missing."
             }, {
@@ -165,10 +163,10 @@ internal class ArgParserTest : DescribeSpec({
                 "--longflag",
                 "-sf"
             )
-        val argParser = ArgParser(Either.applicativeError(), args)
+        val argParser = ArgParser(args)
 
         it("parse short style flag") {
-            val flag = argParser.flag(ShortName("sf"), LongName("shortflag")).fix()
+            val flag = argParser.flag(ShortName("sf"), LongName("shortflag"))
             flag.fold({
                 fail("Parsing flags should never fail.")
             }, {
@@ -177,7 +175,7 @@ internal class ArgParserTest : DescribeSpec({
         }
 
         it("parse long style flag") {
-            val flag = argParser.flag(ShortName("lf"), LongName("longflag")).fix()
+            val flag = argParser.flag(ShortName("lf"), LongName("longflag"))
             flag.fold({
                 fail("Parsing flags should never fail.")
             }, {
@@ -186,7 +184,7 @@ internal class ArgParserTest : DescribeSpec({
         }
 
         it("parse missing flag") {
-            val flag = argParser.flag(ShortName("mf"), LongName("missingflag")).fix()
+            val flag = argParser.flag(ShortName("mf"), LongName("missingflag"))
             flag.fold({
                 fail("Parsing flags should never fail.")
             }, {
