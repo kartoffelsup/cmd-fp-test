@@ -7,7 +7,7 @@ import io.kotest.assertions.fail
 import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.shouldBe
 
-internal class ArgParserTest : DescribeSpec({
+class ArgParserTest : DescribeSpec({
     describe("parse value arguments") {
         val args: Array<String> =
             arrayOf(
@@ -108,7 +108,7 @@ internal class ArgParserTest : DescribeSpec({
             value.fold({
                 fail("A value should be found for ${shortName.name}, ${longName.name}")
             }, {
-                it shouldBe Nel.fromListUnsafe(listOf("foo", "bar", "baz", ""))
+                it shouldBe Nel("foo", listOf("bar", "baz", ""))
             })
         }
 
@@ -119,7 +119,7 @@ internal class ArgParserTest : DescribeSpec({
             value.fold({
                 fail("A value should be found for ${shortName.name}, ${longName.name}")
             }, {
-                it shouldBe Nel.fromListUnsafe(listOf("b", "c", "d"))
+                it shouldBe Nel("b", listOf("c", "d"))
             })
         }
 

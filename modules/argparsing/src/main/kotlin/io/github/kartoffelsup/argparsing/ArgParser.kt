@@ -6,12 +6,16 @@ import arrow.core.NonEmptyList
 import arrow.core.handleError
 import arrow.core.right
 import arrow.core.rightIfNotNull
+import arrow.core.toNonEmptyListOrNull
 
 fun String.shortOption() = ShortName(this)
 fun String.longOption() = LongName(this)
 
-inline class ShortName(val name: String)
-inline class LongName(val name: String)
+@JvmInline
+value class ShortName(val name: String)
+
+@JvmInline
+value class LongName(val name: String)
 
 sealed class ArgParserError {
     abstract val message: String
@@ -21,14 +25,10 @@ class ArgumentMissing(shortName: ShortName, longName: LongName) : ArgParserError
     override val message = "Argument '${longName.name}' ('${shortName.name}') is missing."
 }
 
-class InvalidValue(msg: String) : ArgParserError() {
-    override val message = msg
-}
-
 class ArgParser(
     args: Array<String>
 ) {
-    private val args: Nel<String>? = args.toList().takeIf { it.isNotEmpty() }?.let { NonEmptyList.fromListUnsafe(it) }
+    private val args: Nel<String>? = args.toList().takeIf { it.isNotEmpty() }?.toNonEmptyListOrNull()
 
     private fun argument(shortName: ShortName, longName: LongName): Pair<Int, Nel<String>>? =
         args?.let { arguments ->
@@ -70,7 +70,7 @@ class ArgParser(
 
     fun list(shortName: ShortName, longName: LongName): Either<ArgParserError, NonEmptyList<String>> =
         value(shortName, longName) {
-            Nel.fromListUnsafe(it.split(','))
+           it.split(',').toNonEmptyListOrNull()!!
         }
 
     fun <T> Either<ArgParserError, T>.optional(): Either<ArgParserError, T?> = this.handleError { null }

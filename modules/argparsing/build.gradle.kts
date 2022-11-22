@@ -20,6 +20,7 @@ dependencies {
     exclude(group = "io.arrow-kt")
     exclude(group = "org.jetbrains.kotlin")
   }
+
   testImplementation("io.kotest:kotest-assertions-core:$kotestVersion") {
     exclude(group = "io.arrow-kt")
     exclude(group = "org.jetbrains.kotlin")

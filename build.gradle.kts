@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "1.5.0" apply false
+    kotlin("jvm") version "1.7.21" apply false
 }
 
 subprojects {
@@ -18,7 +18,7 @@ subprojects {
         withType(KotlinCompile::class) {
             kotlinOptions {
                 jvmTarget = "11"
-                freeCompilerArgs += "-Xinline-classes"
+                freeCompilerArgs + "-Xinline-classes"
             }
         }
     }
