@@ -3,9 +3,9 @@ package io.github.kartoffelsup.argparsing
 import arrow.core.Either
 import arrow.core.Nel
 import arrow.core.NonEmptyList
-import arrow.core.handleError
+import arrow.core.getOrElse
+import arrow.core.left
 import arrow.core.right
-import arrow.core.rightIfNotNull
 import arrow.core.toNonEmptyListOrNull
 
 fun String.shortOption() = ShortName(this)
@@ -28,7 +28,7 @@ class ArgumentMissing(shortName: ShortName, longName: LongName) : ArgParserError
 class ArgParser(
     args: Array<String>
 ) {
-    private val args: Nel<String>? = args.toList().takeIf { it.isNotEmpty() }?.toNonEmptyListOrNull()
+    private val args: Nel<String>? = args.toList().toNonEmptyListOrNull()
 
     private fun argument(shortName: ShortName, longName: LongName): Pair<Int, Nel<String>>? =
         args?.let { arguments ->
@@ -49,7 +49,7 @@ class ArgParser(
                 arguments.all.size > (indexOfFirst + 1) -> shortValueArgument(arguments, indexOfFirst)
                 else -> null
             }
-        }.rightIfNotNull { ArgumentMissing(shortName, longName) }
+        }?.right() ?: ArgumentMissing(shortName, longName).left()
 
 
     private fun shortValueArgument(arguments: Nel<String>, indexOfFirst: Int): String? =
@@ -70,8 +70,8 @@ class ArgParser(
 
     fun list(shortName: ShortName, longName: LongName): Either<ArgParserError, NonEmptyList<String>> =
         value(shortName, longName) {
-           it.split(',').toNonEmptyListOrNull()!!
+            it.split(',').toNonEmptyListOrNull()!!
         }
 
-    fun <T> Either<ArgParserError, T>.optional(): Either<ArgParserError, T?> = this.handleError { null }
+    fun <T> Either<ArgParserError, T>.optional(): Either<ArgParserError, T?> = this.getOrElse { null }.right()
 }
